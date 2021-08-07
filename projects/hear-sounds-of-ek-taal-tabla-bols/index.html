@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Hear Ek Taal Bols</title>
+    <script src="https://cdn.jsdelivr.net/npm/howler@2.2.3/dist/howler.min.js"></script>
+    <style>
+        audio {
+            width: 1200px;
+        }
+
+        #spectograph {
+            cursor: pointer;
+        }
+
+        .container {
+            border: 1px solid #DDDDDD;
+            width: 200px;
+            height: 200px;
+            position: relative;
+        }
+
+        .tag {
+            float: left;
+            position: absolute;
+            left: 24px;
+            width: 4px;
+            height: 150px;
+            top: 0px;
+            z-index: 1000;
+            background-color: rgb(111, 208, 0);
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+    <a href="../..">Go home</a>
+    <hr>
+    <h2>Ek Taal ati vilambit spectograph.</h2>
+    <figure>
+        <!-- <figcaption>Ek taal ati vilambit:</figcaption> -->
+        <audio controls autoplay id="audio" src="../data/el-taal-ati-vilambit.mp3">
+            Your browser does not support the<code>audio</code> element.
+        </audio>
+    </figure>
+    <h3>Click on image to seek to the matra</h3>
+
+    <div class="container">
+        <div id="marker" class="tag"></div>
+        <img id="spectograph" src="../data/ek-taal-ati-vilambit-spectograph-with-matra-positions.png" width=1200>
+    </div>
+
+    <script>
+        let audio = document.getElementById("audio");
+        let marker = document.getElementById("marker");
+        let minX = 26;
+        let maxX = 1191;
+        let duration;
+        audio.addEventListener('canplaythrough', () => {
+            duration = audio.duration;
+            console.log({ duration });
+        }, false);
+
+
+        audio.addEventListener('timeupdate', (e) => {
+            // console.log(e.target.currentTime);
+            //If ?       : e.target.currentTime
+            //  (1191-26):duration 
+            let x = e.target.currentTime * (maxX - minX) / duration ;
+
+            marker.style.left = (x + minX) + 'px';
+
+        }, false);
+
+        var sound = new Howl({
+            src: ['../data/el-taal-ati-vilambit.mp3'],
+            sprite: {
+                blast: [0, 3000],
+                laser: [23000, 33000],
+                winner: [6000, 5000]
+            }
+        });
+
+        // sound.play();
+
+        sound.on('load', () => {
+            let duration = sound.duration();
+            // sound.seek(23.153);
+            // sound.play('laser');
+            //            console.log({ duration });
+        })
+
+
+        document.getElementById("spectograph").addEventListener('click', function (e) {
+            console.log(e);
+            var x = e.offsetX;
+            var y = e.offsetY;
+            console.log({ x, y });
+
+            if (x > minX - 5 && x < maxX) {
+                let realX = x - minX;
+                //If realX   : ?
+                //  (1191-26):duration 
+                let seekFrom = realX * duration / (maxX - minX);
+                console.log({ seekFrom });
+                audio.currentTime = seekFrom;
+                // marker.style.left = (x - 20)+ 'px';
+                // marker.style.left = (e.clientX - 20)+ 'px';
+            }
+
+
+        });
+
+        // sound.on('', () => {
+        // })
+    </script>
+</body>
+
+</html>
