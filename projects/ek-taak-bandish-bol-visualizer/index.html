@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.0/dist/svg.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <title>Document</title>
+    <style>
+        svg {
+            background-color: #fff8dc;
+        }
+
+        path.dashed {
+            stroke-dasharray: 5;
+        }
+
+        text {
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="draw"></div>
+    <div id="app">
+        BPM <input v-model="bpm" />
+        <button @click="pausePlayAavertan">Pause/Play</button>
+        <button @click="restartAavertan">Restart</button>
+    </div>
+
+    <script>
+        var vueData = {
+            bpm: 13
+        }
+        var width = 900;
+        var height = 1200;
+        var cx = width / 2;
+        var cy = cx;
+        var draw = SVG().addTo('#draw').size(width, height);
+        var vibhags = [
+            ["", "", "", "", "", "", "", "", "", "", "", "शा ~ म बि"],
+            ["ना ~ ~ ~", "न हीं चै ~", "ना ~ ~ ~", "~ ~ ~ ~", "का ~ ~ ~", "क रु ~ ~",
+                "स खी ~ ~", "री ~ ~ ~", "क ~ टे ~", "ना ~ ~ ~", "दी न रै ना"]
+        ];
+        //var bols = "धा धिन धिन धा धा धिन धिन धा ना तिन तिन ता तेते धिन धिन धा".split(" ");
+        var taalBols = ["धीं", "धीं", "धा गे", "ति र कि ट", "तुं", "ना", "क", "ता", "धा गे", "ति र कि ट", "धीं", "ना"];
+        var startVibhagNum = 12;
+        var rows = 2;
+        var texts = [];
+
+        var topMargin = 30;
+        var leftMargin = 30;
+        var xOff, yOff, x, y, rightMostX, pointer;
+        var vibhagWidth = 100;
+        var vibhagHeight = 100;
+        var oneAavertanTime = 60 * 1000 * 12 / 13;
+        var aavertanAnim;
+
+        for (var r = 0; r < vibhags.length; r++) {
+            for (var c = 0; c < vibhags[r].length; c++) {
+                xOff = (c * vibhagWidth) + leftMargin;
+                yOff = (r * 40) + topMargin;
+                // var text = draw.text(vibhags[r][c]).move(xOff, yOff);
+                drawBols(vibhags[r][c], xOff, yOff);
+                // texts.push(text);
+                // console.log({r, c, xOff, yOff, bol: vibhags[r][c]});
+                if (r == 0) {     //Draw vertical lines
+                    x = xOff - 5;
+                    y = yOff - 5;
+                    var y1 = y + vibhagHeight;
+                    // Major vertical line
+                    draw.path(`M ${x},${y} L ${x},${y1}`).stroke({ color: 'black' });
+
+                    //Draw vibhag number
+                    var y2 = y + vibhagHeight + 8;
+                    draw.text(String(c + 1)).move(x, y2);
+                    draw.text(taalBols[c]).move(x, y2 + 30);
+
+
+                    //Draw mid lines in each vibhag, dotted
+                    x = x + (vibhagWidth / 2);
+                    y2 = y + (vibhagHeight / 4) - 10;
+                    draw.path(`M ${x},${y2} L ${x},${y1}`).stroke({ color: 'grey' }).attr({ class: 'dashed' });
+
+
+                    // y2 = y + vibhagHeight + 12;
+                    // draw.text(taalBols[c]).center(x, y2 + 30);
+
+                    if (c == vibhags[r].length - 1) {   //Draw right most vertical line
+                        // var bbox = text.bbox();
+                        // x = bbox.x + bbox.width + 5;
+                        x = ((c + 1) * vibhagWidth) + leftMargin;
+                        rightMostX = x;
+                        draw.path(`M ${x},${y} L ${x},${y1}`).stroke({ color: 'black' });
+                    }
+
+
+
+                }
+            }
+        }
+        x = leftMargin - 5;
+        y = yOff + 35;
+        var x1 = rightMostX;
+        //Draw bottom horizontal line
+        draw.path(`M ${x},${y} L ${x1},${y}`).stroke({ color: 'red' }).id('timeline');
+        //Draw pointer circle  
+        pointer = draw.circle(10).center(x, y).id('pointer');
+        draw.width(x1 + leftMargin);
+        draw.height(yOff + 130);
+
+        // animateAavertan();
+        createAavertanAnim();
+
+        initVue();
+
+
+        function initVue() {
+            var app = new Vue({
+                el: '#app',
+                data: vueData,
+                methods: {
+                    pausePlayAavertan() {
+                        // if (!aavertanAnim) createAavertanAnim();
+                        if (aavertanAnim.paused) {
+                            aavertanAnim.play();
+                        } else {
+                            aavertanAnim.pause();
+                        }
+                    },
+                    restartAavertan() {
+                        // if (!aavertanAnim) createAavertanAnim();
+                        aavertanAnim.restart();
+                    }
+                }
+            })
+        }
+
+
+
+        function drawBols(phrase, x, y) {
+            if (phrase == "") return;
+            var margin = 5;
+            var w = (vibhagWidth - (margin * 2)) / 4;
+            // draw.text(vibhags[r][c]).move(x, y);
+            var bols = phrase.split(" ");
+            for (var i = 0; i < bols.length; i++) {
+                var x1 = x + margin + (i * w);
+                draw.text(bols[i]).move(x1, y);
+            }
+        }
+
+
+        function createAavertanAnim() {
+            var path = anime.path('#timeline');
+
+            aavertanAnim = anime({
+                targets: '#pointer',
+                cx: path('x'),
+                // translateY: path('y'),
+                easing: 'linear',
+                duration: oneAavertanTime,
+                loop: true,
+                autoplay: false
+            });
+            // aavertanAnim.pause();
+
+
+        }
+
+
+    </script>
+</body>
+
+</html>
