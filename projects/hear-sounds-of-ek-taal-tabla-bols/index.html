@@ -31,6 +31,10 @@
             background-color: rgb(111, 208, 0);
             margin: 0;
         }
+
+        #bpm {
+            width: 50px;
+        }
     </style>
 </head>
 
@@ -45,6 +49,13 @@
         </audio>
     </figure>
     <h3>Click on image to seek to the matra</h3>
+    <p>
+    <form id="bpmForm" onsubmit="return setBPM();">
+        <label for="bpm">BPM:</label>
+        <input id="bpm" type="text" value="13">
+        <button type="submit">Set Rate</button>
+    </form>
+    </p>
 
     <div class="container">
         <div id="marker" class="tag"></div>
@@ -54,20 +65,53 @@
     <script>
         let audio = document.getElementById("audio");
         let marker = document.getElementById("marker");
+        let bpmForm = document.getElementById("bpmForm");
+        let bpmEle = document.getElementById("bpm");
         let minX = 26;
         let maxX = 1191;
         let duration;
         audio.addEventListener('canplaythrough', () => {
             duration = audio.duration;
             console.log({ duration });
+            // Playback rate for 13 BPM
+            // 12 bits takes 'duration' seconds
+            // 13 should take ? 
+            let newDuration = duration * 13 / 12;
+            // If duration    : 1
+            //    newDuration : ?
+            let rate = newDuration / duration;
+            console.log({ duration, rate, newDuration });
+            audio.playbackRate = rate;
+
+
         }, false);
+
+
+        // audio.addEventListener('submit', (e) => {
+        //     console.log(e);
+        //     e.preventDefault();
+        //     return false;
+        // }, false);
+
+
+        function setBPM() {
+            console.log(bpmEle.value);
+
+            let bpm = Number(bpmEle.value);
+            let newDuration = duration * bpm / 12;
+            let rate = newDuration / duration;
+            console.log({ duration, rate, newDuration });
+            audio.playbackRate = rate;
+
+            return false;
+        }
 
 
         audio.addEventListener('timeupdate', (e) => {
             // console.log(e.target.currentTime);
             //If ?       : e.target.currentTime
             //  (1191-26):duration 
-            let x = e.target.currentTime * (maxX - minX) / duration ;
+            let x = e.target.currentTime * (maxX - minX) / duration;
 
             marker.style.left = (x + minX) + 'px';
 
