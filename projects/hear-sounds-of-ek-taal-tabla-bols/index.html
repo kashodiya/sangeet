@@ -52,7 +52,7 @@
     <p>
     <form id="bpmForm" onsubmit="return setBPM();">
         <label for="bpm">BPM:</label>
-        <input id="bpm" type="text" value="13">
+        <input id="bpm" type="text" value="12">
         <button type="submit">Set Rate</button>
     </form>
     </p>
@@ -76,7 +76,8 @@
             // Playback rate for 13 BPM
             // 12 bits takes 'duration' seconds
             // 13 should take ? 
-            let newDuration = duration * 13 / 12;
+            let bpm = Number(bpmEle.value);
+            let newDuration = duration * bpm / 12;
             // If duration    : 1
             //    newDuration : ?
             let rate = newDuration / duration;
