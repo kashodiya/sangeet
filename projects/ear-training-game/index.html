@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Document</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.17/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/nexusui@latest/dist/NexusUI.js"></script>
+</head>
+
+<body>
+    <div id="piano"></div>
+    <script>
+        var keys = ("C#3 D3 D#3 E3 F3 F#3 G3 G#3 A3 A#3 B3 C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5 C#5 D5 D#5 E5 F4 F#5 G5 G#5 A5 A#5 B5 C6").split(" ");
+        var swars = ("sl Rl rl Gl gl ml Ml pl Dl dl Nl nl s R r G g m M p D d N n su Ru ru Gu gu mu Mu pu Du du Nu nu").split(" ");
+        var vikrut = "010100101010010100101010010100101010";
+        const synth = new Tone.Synth().toDestination();
+        var combo3 = "012 021 102 120 201 210".split(" ").map((s) => s.split(''));
+
+        function getRandomInt(min, max) {
+            min = Math.ceil(min);
+            max = Math.floor(max);
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        var piano = new Nexus.Piano("#piano", {
+            size: [700, 125],
+            mode: "impulse", // 'button', 'toggle', or 'impulse'
+            lowNote: 24,
+            highNote: 60,
+        });
+
+        function playKey(key){
+            synth.triggerAttackRelease(key, "2n");
+        }
+
+        // 5-27 = ml to gu 
+        function getRandom3(){
+            let fromIndex = 5;
+            let toIndex = 27 - 3;
+            let index = getRandomInt(fromIndex, toIndex);
+            let combo = combo3[getRandomInt(0, combo3.length - 1)];
+            let random3Keys = combo.map(c => {
+                let swarIndex = Number(c) + index;
+                var key = keys[swarIndex];
+                var swar = swars[swarIndex];
+                return { swarIndex, key, swar }
+            })
+            console.log(random3Keys);
+        }
+
+        piano.on("change", function (v) {
+            if (v.state) {
+                console.log(v.note);
+                var swarIndex = v.note - 25;
+                var key = keys[swarIndex];
+                var swar = swars[swarIndex];
+                console.log({ swarIndex, swar, key });
+
+                // synth.triggerAttackRelease(key, "2n");
+                playKey(key)
+
+                // console.log(_.find(pianoKeys, ['index', v.note]));
+
+                // var key = _.find(pianoKeys, ['index', v.note]);
+                // playTone(key.tone);
+                // if (gameOn) {
+                //   if (lastKey.index == key.index) {
+                //     console.log('Yes!!!');
+                //     showResult(true);
+                //     setTimeout(() => {
+                //       playRandomKey();
+                //     }, 3000)
+                //   } else {
+                //     showResult(false);
+                //     console.log('Noooooooo');
+                //     setTimeout(() => {
+                //       playAgain();
+                //     }, 1500)
+                //   }
+                // }
+            }
+        });
+
+        for(let i = 0; i < 30; i++){
+            let index = getRandomInt(0, combo3.length - 1);
+            console.log(combo3[index]);
+        }
+
+
+
+    </script>
+</body>
+
+</html>
