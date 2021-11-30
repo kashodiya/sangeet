@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://webfonts.omenad.net/fonts.css">
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.0/dist/svg.js"></script>
+    <style>
+        .swar {
+            font-size: 24px;
+        }
+
+        .box {
+            cursor: pointer;
+        }
+
+        .box:hover {
+            background-color: burlywood;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Ratios of natural swars.</h1>
+    <h3>First section is 7 swars. Second section is 22 swars. Try clicking on grey areas.</h3>
+    <p>Below the Swar is fraction and divisblity factor. Note every fraction denominator is multiple of either by 2 or 3.</p>
+    <div id="draw"></div>
+    <!-- <div id="app">
+    <ul>
+      <li v-for="(swar, i) in swars" :key="i">
+        <code class="ome-bhatkhande-hindi">{{ swar }}</code>
+      </li>
+    </ul>
+  </div> -->
+
+    <script>
+        var ratios = [[9, 8], [5, 4], [4, 3], [3, 2], [5, 3], [11, 6], [2, 1]];
+        var swars = "R G M P D N S'".split(" ");
+        // var swars = 'r g m p d n su'.split(" ");
+
+        // var ratios = [ [ 256, 243 ], [ 16, 15 ], [ 10, 9 ], [ 9, 8 ], [ 32, 27 ], [ 6, 5 ], [ 5, 4 ], [ 81, 64 ], [ 4, 3 ], [ 27, 20 ], [ 45, 32 ], [ 729, 512 ], [ 3, 2 ], [ 128, 81 ], [ 8, 5 ], [ 5, 3 ], [ 27, 16 ], [ 16, 9 ], [ 9, 5 ], [ 15, 8 ], [ 243, 128 ], [ 2, 1 ] ]
+        // var swars = [ "S", "r1", "r2", "R1", "R2", "g1", "g2", "G1", "G2", "M1", "M2", "m1", "m2", "P", "d1", "d2", "D1", "D2", "n1", "n2", "N1", "N2", "S'" ];
+
+        var width = 1600;
+        var height = 5200;
+        var margin = { x: 70, y: 50 };
+        var w = width - (margin.x * 2);
+        var vGap = 10;
+        var boxHeight = 70;
+        var draw = SVG().addTo('#draw').size(width, height).attr('style', 'background-color: #ffe3e3');
+        var vertLine;
+        var boxes = [];
+        var curY = 0;
+
+
+        function start() {
+            curY = margin.y;
+            render();
+            analysis();
+
+            curY = curY + vGap * 3;
+
+            draw.line(margin.x / 2, curY, width - margin.x / 2, curY).stroke({ color: 'black', width: 3 })
+
+            curY = curY + vGap * 5;
+            ratios = [[256, 243], [16, 15], [10, 9], [9, 8], [32, 27], [6, 5], [5, 4], [81, 64], [4, 3], [27, 20], [45, 32], [729, 512], [3, 2], [128, 81], [8, 5], [5, 3], [27, 16], [16, 9], [9, 5], [15, 8], [243, 128], [2, 1]]
+            swars = ["r1", "r2", "R1", "R2", "g1", "g2", "G1", "G2", "M1", "M2", "m1", "m2", "P", "d1", "d2", "D1", "D2", "n1", "n2", "N1", "N2", "S'"];
+            render();
+            analysis();
+        }
+
+        function render() {
+            var y = curY;
+            ratios.forEach((ratio, s) => {
+                var num = ratio[0] - ratio[1];
+                var den = ratio[1];
+                var boxWidth = w / den;
+                var x = margin.x;
+
+                draw.text(1 + '/' + den).move(x - 44, y + 20);
+                draw.text(swars[s]).move(x - 44, y).attr({ class: "ome-bhatkhande-englishx swar" });
+
+                draw.text(getMod(den)).move(x - 44, y + 40);
+
+                for (let i = 0; i < den; i++) {
+                    var fill = 'none';
+                    if (i < num) {
+                        fill = 'lightgrey';
+                    }
+                    // console.log({ i, boxWidth, num, den });
+                    var box = draw.rect(boxWidth, boxHeight).move(x, y).stroke({ color: 'black', width: 1 }).fill(fill).click(boxClicked).attr({ class: 'box' });
+                    boxes.push(box);
+                    box.attr({ index: boxes.length - 1 });
+                    // draw.text(1 + '/' + den).move(x + 12, y + 12);
+                    // .attr({class: 'box'});
+                    x = x + boxWidth;
+                }
+                y = y + boxHeight + vGap;
+                curY = y;
+            });
+            draw.height(y + margin.y);
+
+            if (swars.length == 22) {
+                vertLine = draw.line(margin.x, margin.y - vGap, margin.x, y).stroke({ dasharray: 16, color: 'grey', width: 5 })
+            }
+        }
+
+        start();
+
+        function boxClicked(e) {
+            var index = e.target.attributes.index.value;
+            var x = boxes[index].x();
+            var width = boxes[index].width();
+            // console.log({ index, cl: e.target.classList.value });
+            vertLine.x(Number(x) + Number(width));
+        }
+
+        function nthroot(x, n) {
+            ng = n % 2;
+            if ((ng == 1) || x < 0)
+                x = -x;
+            var r = Math.pow(x, 1 / n);
+            n = Math.pow(r, n);
+
+            if (Math.abs(x - n) < 1 && (x > 0 === n > 0))
+                return ng ? -r : r;
+        }
+
+        function getMod(den) {
+            var mod3 = den % 3;
+            var mod2 = den % 2;
+            var mod = mod3 == 0 ? "3" : "2";
+            return mod;
+
+        }
+
+        function analysis() {
+            //Check if a den is divisible by 2 or 3
+            ratios.forEach(ratio => {
+                var den = ratio[1];
+                var mod3 = den % 3;
+                var mod2 = den % 2;
+                var mod = mod3 == 0 ? "3" : "2";
+
+                // console.log({ den, mod, mod3, mod2 }) 
+            });
+        }
+
+        // console.log(nthroot(2,12));
+        // console.log(nthroot(2,10));
+
+    </script>
+</body>
+
+</html>
