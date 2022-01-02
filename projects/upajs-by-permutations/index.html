@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.0/dist/svg.js"></script>
+    <style>
+        .line {
+            stroke-dasharray: 4;
+        }
+        .numLine:hover{
+            background-color: lightgray;
+            fill: lightgray;
+            stroke: red;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Generate swar permutations in 4 bits</h1>
+    <form onsubmit="generateFormSubmitted(event)">
+        <label for="swars">Swars (each swar delimited by a space):</label>
+        <input type="text" name="swars" id="swars" value="S R G M">
+        <button type="submit" id="generateBtn">Generate</button>
+    </form>
+    <h3 id="message1">... permutations</h3>
+    <h3 id="message2">as ... in 4 bits</h3>
+    <p>Click any Series to see similar Upajs.</p>
+    <div id="filterControls" style="display: none;">
+        <span id="filterMsg"></span>
+        <button onclick="removeFilter()">Remove filter</button>
+    </div>
+    <div id="draw"></div>
+
+    <script>
+
+        var width = 300;
+        var height = 3600;
+        var draw;
+        let numbers;
+        let swars;
+        let shapeFilterStr = '';
+        let filterControls = document.getElementById('filterControls');
+        let filterMsg = document.getElementById('filterMsg');
+        let permutations = [];
+        let totalBits = 4;
+
+
+        function generateFormSubmitted(e) {
+            e.preventDefault();
+            generate();
+        }
+
+        function generate() {
+            swars = document.getElementById('swars').value.trim().split(" ");
+            numbers = swars.map((s, i) => i + 1);
+            // console.log('Generating for: ', swars, numbers);
+            generateAndRender();
+            document.getElementById('message1').innerHTML = 'Found ' + permutations.length + ' permutations of: ' + swars.join(", ");
+            document.getElementById('message2').innerHTML = "as " + numbers.join(", ") + " in 4 bits";
+        }
+
+
+        function getPermutations() {
+            var holdingArr = [];
+            // var threeOptions = numbers;
+            var recursiveFn = function (singleSolution) {
+                // if (singleSolution.length > (totalBits - 1)) {   // Control this to how many items you want on your line
+                if (singleSolution.length >= totalBits) {   // Control this to how many items you want on your line
+                    holdingArr.push(singleSolution);
+                    return;
+                }
+                for (var i = 0; i < numbers.length; i++) {
+                    recursiveFn(singleSolution.concat([numbers[i]]));
+                }
+            };
+            recursiveFn([]);
+            return holdingArr;
+        };
+
+        function enrichPermutations(permutations){
+            return permutations.map(line => {
+                let shape = [];
+                for(let i = 1; i < line.length; i++){
+                    shape.push(line[i] - line[i-1]);
+                }
+                let shapeStr = shape.join("");
+                return { line, shape, shapeStr };
+            });
+        }
+
+        function removeFilter(){
+            filterMsg.innerHTML = 'Wait...'
+            shapeFilterStr = '';
+            setTimeout(generate, 10);
+            // generate();
+        }
+
+        function generateAndRender() {
+            if (draw) draw.remove();
+            draw = SVG().addTo('#draw').size(width, height);
+
+            permutations = getPermutations();
+            let enrichedPermutations = enrichPermutations(permutations);
+
+
+            // console.log(enrichedPermutations);
+
+            let yMargin = xMargin = 20;
+            let cx = xMargin;
+            let cy = yMargin;
+            let lineHeight = 20;
+
+            if(shapeFilterStr != ''){
+                filterMsg.innerHTML = "Filter is appled for shape = " + shapeFilterStr;
+                filterControls.style.display = "block";
+            }else{
+                filterControls.style.display = "none";
+            }
+
+            enrichedPermutations.forEach((permu, lineNum) => {
+                if(shapeFilterStr != '' && permu.shapeStr != shapeFilterStr){
+                    return;
+                }
+                let line = permu.line;
+                let max = Math.max(...line);
+                let min = Math.min(...line);
+                let rows = max - min + 1;
+                //            let moveUpLinesBy = numbers.length - rows;
+                cx = xMargin;
+                let y = cy;
+                let prevNum = 0;
+                let prevObj = {};
+                let group = draw.group().id('line-' + lineNum);
+                let text = group.text('Series: ' + line.join(",")).move(cx, y).id('numLine-' + lineNum).attr({class: 'numLine'});
+                // '\u2248'
+
+                text.click(function (e) {
+                    let index = Number(e.target.parentElement.id.split('-')[1]);
+                    let curPermu = enrichedPermutations[index];
+                    shapeFilterStr = curPermu.shapeStr;
+                    // console.log(index, curPermu);
+                    generate();
+                })
+
+                group.data('permu', permu);
+                // group.click(function (e) {
+                //     console.log(e);
+                // })
+                // &#8776;
+                y += lineHeight;
+                line.forEach((num, i) => {
+                    // num = 4 - num;
+                    y = cy + (((totalBits + 1) - num) * lineHeight) + lineHeight / 3;
+                    group.rect(lineHeight, lineHeight).move(cx, y).stroke({ color: '#f06', width: 1 }).fill('yellow');
+                    group.text(swars[num - 1]).move(cx, y);
+
+
+
+                    if (i > 0 && Math.abs(prevObj.num - num) > 1) {
+                        // console.log('yes', line);
+                        //Draw connecting line between number that are not next to each other in value
+                        group.line(prevObj.x + lineHeight, prevObj.y + lineHeight, cx, y).stroke({ color: '#f06', width: 1 });
+                    }
+
+                    prevNum = num;
+                    prevObj = { num, y, x: cx };
+                    // y = cy + (num * lineHeight);
+                    cx += lineHeight;
+                });
+                // cy += (lineHeight * (rows + 1));
+                cy += (lineHeight * (numbers.length + 1)) + (lineHeight / 2);
+                group.line(xMargin, cy + (lineHeight / 2), xMargin + (lineHeight * 4), cy + (lineHeight / 2)).stroke({ color: 'lightgrey', width: 3 }).attr({ class: 'line' });
+                cy += lineHeight;
+                // console.log({line, min, max, rows})
+            });
+
+            cy += lineHeight;
+
+            draw.height(cy);
+            draw.width(cx + xMargin);
+
+        }
+
+        generate();
+
+
+
+
+
+        // function allPermutations(items) {
+        //     // allPermutations () : return a list of all possible permutations
+        //     // Credits: https://stackoverflow.com/questions/9960908/permutations-in-javascript
+        //     // PARAM items : array of items
+
+        //     let results = [];
+        //     function permute(arr, memo) {
+        //         var cur, memo = memo || [];
+        //         for (let i = 0; i < arr.length; i++) {
+        //             cur = arr.splice(i, 1);
+        //             if (arr.length === 0) {
+        //                 results.push(memo.concat(cur));
+        //             }
+        //             permute(arr.slice(), memo.concat(cur));
+        //             arr.splice(i, 0, cur[0]);
+        //         }
+        //         return results;
+        //     }
+        //     permute(items);
+        //     return results;
+        // }
+
+        // var fruits = ["1", "2", "3", "4"];
+        // var permutated = allPermutations(fruits);
+        // console.table(permutated);
+
+
+        // var array = fruits;
+        // var result = array.flatMap(
+        //     (v, i) => array.slice(i + 1).map(w => v + ' ' + w)
+        // );
+        // console.log(result);
+
+
+        // function combinations(str) {
+        //     var fn = function (active, rest, a) {
+        //         if (!active && !rest)
+        //             return;
+        //         if (!rest) {
+        //             a.push(active);
+        //         } else {
+        //             fn(active + rest[0], rest.slice(1), a);
+        //             fn(active, rest.slice(1), a);
+        //         }
+        //         return a;
+        //     }
+        //     return fn("", str, []);
+        // }
+
+        // console.log(combinations("1234"));
+
+
+
+
+
+
+        // var result = []
+
+        // // currentSize should be invoked with the array size
+        // function permutation(arr, currentSize) {
+        //     if (currentSize == 1) { // recursion base-case (end)
+        //         result.push(arr.join(""));
+        //         return;
+        //     }
+
+        //     for (let i = 0; i < currentSize; i++) {
+        //         permutation(arr, currentSize - 1);
+        //         if (currentSize % 2 == 1) {
+        //             let temp = arr[0];
+        //             arr[0] = arr[currentSize - 1];
+        //             arr[currentSize - 1] = temp;
+        //         } else {
+        //             let temp = arr[i];
+        //             arr[i] = arr[currentSize - 1];
+        //             arr[currentSize - 1] = temp;
+        //         }
+        //     }
+        // }
+
+        // let array1 = ["1", "2", "3", "4"];
+        // permutation(array1, array1.length);
+
+        // console.log(result);
+
+
+
+    </script>
+
+</body>
+
+</html>
