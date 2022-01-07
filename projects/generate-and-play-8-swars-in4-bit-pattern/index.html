@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Play Upaj</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.17/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <style>
+        .combi-list,
+        .dp-list {
+            list-style: none;
+            padding-left: 0px;
+            font-family: monospace, 'Courier New', Courier;
+        }
+
+        .pattern:hover {
+            cursor: pointer;
+            background-color: aliceblue;
+        }
+
+        .combi-line,
+        .swar-keys {
+            display: flex;
+            flex-flow: row wrap;
+        }
+
+        .swar-keys-item {
+            border-right: solid 2px black;
+            min-width: 50px;
+            border-bottom: solid 2px lightgray;
+        }
+
+        .combi-swar {
+            width: 30px;
+            text-align: right;
+        }
+
+        .combi-line:hover {
+            background-color: aliceblue;
+            /* cursor: pointer; */
+        }
+
+        .piano-key {
+            color: lightgray;
+        }
+
+        .control-section{
+            padding-bottom: 15px;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+
+        <h1>Generate 8 swars in 4 bit pattern</h1>
+
+        <h3>Select a pattern</h3>
+        <ul class="dp-list">
+            <li v-for="(dp, index) in durationPatterns">
+                <input type="radio" :id="'pattern-' + index" name="selectedDP" :value="index" v-model="selectedDPIndex">
+                <label :for="'pattern-' + index" class="pattern">
+                    {{dp.pattern}}
+                </label>
+            </li>
+        </ul>
+
+        <h3>Enter swars: (each swar seperated by a space)</h3>
+        <form @submit.prevent="generate">
+            <input v-model="swars" type="text">
+            <button type="submit">Generate</button>
+        </form>
+
+        <div>
+            <h3>Swar notations:</h3>
+            <div class="swar-keys">
+                <div class="swar-keys-item" v-for="(swar, i) in allSwars">
+                    {{swar}}
+                    <br>
+                    <span class="piano-key">{{allPianoKeys[i]}}</span>
+                </div>
+            </div>
+            <!-- <div class="swar-keys">
+                <div class="swar-keys-item" v-for="key in allPianoKeys">{{key}}</div>
+            </div> -->
+        </div>
+
+
+        <div v-if="combis.length > 0">
+            <h3>Generated {{combis.length}} patterns</h3>
+
+            <div class="controls">
+
+                <div class="control-section">
+                    <label for="synthIndex">Synthesizer tone:</label>
+                    <select name="synthIndex" v-model="synthIndex">
+                        <option :value="synth.index" v-for="synth in synthList">{{synth.name}}</option>
+                    </select>
+                    <!-- <option value="">
+                <select :value="synth.index" v-for="synth in synthList">{{synth.name}}</select>
+            </option> -->
+                </div>
+                <div class="control-section">
+                    Play duration (of a pattern): [{{playDuration}} sec.]
+
+                    <div>
+                        <input type="radio" name="durationType" id="durationType-sec" value="sec"
+                            v-model="durationType">
+                        <label for="durationType-sec">Duration in seconds:</label>
+                        <input type="range" v-model="playDurationInSec" min="2" max="8">
+                    </div>
+                    <div>
+                        <input type="radio" name="durationType" id="durationType-bpm" value="bpm"
+                            v-model="durationType">
+                        <label for="durationType-bpm">BPM of Ektaal (12 bits):</label>
+                        <input type="number" v-model="playDurationInBPM" min="5" max="108"> 
+                    </div>
+                </div>
+
+
+                <div class="control-section">
+                    <label>Sort by:</label>
+                    <input type="radio" name="sortBy" id="sortBy-swar" value="swarCounts" v-model="sortBy"
+                        @change="applyCombisSort">
+                    <label for="sortBy-swar">Swar count</label>
+                    <input type="radio" name="sortBy" id="sortBy-none" value="none" v-model="sortBy"
+                        @change="applyCombisSort">
+                    <label for="sortBy-none">None</label>
+                </div>
+                <div class="control-section">
+                    <input id="autoPlay" type="checkbox" v-model="autoPlay">
+                    <label for="autoPlay">Auto play (toggle)</label>
+                </div>
+            </div>
+
+            <ul class="combi-list">
+                <li v-for="(combi, index) in combis">
+                    <div class="combi-line">
+                        <button @click="play(index)">&#9658;</button>
+                        &nbsp;
+                        [<span class="combi-swar" v-for="swar in combi.swarsWithTilde">
+                            {{swar}}
+                        </span>]
+                        {{combi.swarCounts}}
+                        &nbsp;
+                        <span v-if="playingCombiIndex == index">&check;</span>
+                        <!-- [<span v-for="swar in combi.swars">{{swar}} </span>] -->
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+    </div>
+
+    <script>
+
+        // let testList = [1,2,3];
+        // let incrementBy = 2;
+        let app;
+        let env = new Tone.Envelope({
+            attack: 0.01,
+            decay: 0.01,
+            sustain: 0.8,
+            release: 0.1,
+        });
+
+        // "attack": 0.1,
+        //     "decay": 0.5,
+        //     "sustain": 0.7,
+        //     "release": 2,
+
+        // XXX MonoSynth, NoiseSynth, PluckSynth
+
+        // const synth = new Tone.FMSynth({
+        // const synth = new Tone.AMSynth({
+        // const synth = new Tone.DuoSynth({
+        // const synth = new Tone.MembraneSynth({
+        // const synth = new Tone.MetalSynth({
+
+        const synths = [
+            new Tone.FMSynth({ envelope: env }).toDestination(),
+            new Tone.AMSynth({ envelope: env }).toDestination(),
+            new Tone.DuoSynth({ envelope: env }).toDestination(),
+            new Tone.MembraneSynth({ envelope: env }).toDestination(),
+            new Tone.MetalSynth({ envelope: env }).toDestination()
+        ]
+        let synth;
+
+        // const synth = new Tone.DuoSynth({envelope: env}).toDestination();
+
+        let allSwars = ".S .r .R .g .G .M .m .P .d .D .n .N S r R g G M m P d D n N S. r. R. g. G. M. m. P. d. D. n. N.".split(" ");
+        let allPianoKeys = "C#3 D3 D#3 E3 F3 F#3 G3 G#3 A3 A#3 B3 C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5 C#5 D5 D#5 E5 F4 F#5 G5 G#5 A5 A#5 B5 C6".split(" ");
+        let tonePart;
+
+        initApp();
+
+
+        function initApp() {
+
+            // Tone.Transport.on('stop', e => {
+            //     console.log('Transport ended!')
+            // })
+
+            app = new Vue({
+                el: '#app',
+                data: {
+                    durationType: 'bpm',
+                    allSwars,
+                    allPianoKeys,
+                    swars: '.n S',
+                    autoPlay: false,
+                    selectedDPIndex: 0,
+                    playDuration: 4,
+                    playDurationInSec: 4,
+                    playDurationInBPM: 13,
+                    synthIndex: 0,
+                    playingCombiIndex: -1,
+                    combis: [],
+                    sortBy: 'none',
+                    unsortedCombis: [],
+                    durationPatterns: [
+                        { pattern: "X ~ X X ~ X ~ X" },
+                        { pattern: "X ~ ~ ~ X ~ ~ ~" },
+                        { pattern: "X ~ X ~ X ~ ~ ~" }
+
+                        // { display: " oooo|  oooo|  oooo| oooo", last2Same: false, fractions: [1 / 4, 1 / 4, 1 / 4, 1 / 4], minSwar: 1, maxSwar: 4 },
+                        // { display: "oo oo|  oooo|  oooo| oooo", last2Same: false, fractions: [1 / 8, 1 / 8, 1 / 4, 1 / 4, 1 / 4], minSwar: 2, maxSwar: 5 },
+                        // { display: "ooo o|  oooo|  oooo| oooo", last2Same: true, fractions: [3 / 16, 1 / 16, 1 / 4, 1 / 4, 1 / 4], minSwar: 2, maxSwar: 5 },
+                        // { display: "oo oo| oo oo|  oooo| oooo", last2Same: true, fractions: [1 / 8, 1 / 8, 1 / 8, 1 / 8, 1 / 4, 1 / 4], minSwar: 2, maxSwar: 5 },   //6          
+                        // { display: "oo oo| oo oo| ooo o| oooo", last2Same: true, fractions: [1 / 8, 1 / 8, 1 / 8, 1 / 8, 3 / 16, 1 / 16, 1 / 4], minSwar: 3, maxSwar: 5 } //6
+                    ]
+                },
+                computed: {
+                    swarList: function () {
+                        return this.swars.split(" ");
+                    },
+                    synthList: function () {
+                        return synths.map((s, index) => {
+                            let name = s.name;
+                            return { name, index };
+                        });
+                    }
+                },
+                watch: {
+                    synthIndex: function (newIndex) {
+                        synth = synths[newIndex];
+                    },
+                    autoPlay: function () {
+                        // console.log(this.$data);
+                        this.playingCombiIndex = -1;
+                        clearInterval(this.autoPlayIntervalId);
+                    },
+                    playDurationInSec: function(){
+                        this.durationType = 'sec';
+                        this.setPlayDuration();
+                    },
+                    durationType: function () {
+                        this.setPlayDuration();
+                    },
+                    playDurationInBPM: function () {
+                        this.durationType = 'bpm';
+                        this.setPlayDuration();
+                    }
+                },
+                methods: {
+                    setPlayDuration() {
+                        if (this.durationType == 'sec') {
+                            this.playDuration = this.playDurationInSec;
+                        } else {
+                            // 13 Bits in 60 sec, for 1 bit X sec
+                            this.playDuration = Math.round(60 / this.playDurationInBPM * 100) / 100;
+                        }
+                    },
+                    play(combiIndex) {
+
+                        let actualPlay = () => {
+                            this.playingCombiIndex = combiIndex;
+                            let combi = this.combis[combiIndex];
+                            // console.log('Playing combiIndex = ', combiIndex);
+                            playPattern(combi.swars, combi.swarsWithTilde, this.playDuration);
+                        }
+
+                        actualPlay();
+
+                        if (this.autoPlay) {
+                            let interval = 1000 * (+this.playDuration + 1);
+                            console.log(typeof interval);
+                            console.log('Setting autoplay interval to:', interval);
+                            this.autoPlayIntervalId = setInterval(() => {
+                                combiIndex++;
+                                // console.log('Triggering autoplay, playing next: ' + combiIndex);
+                                actualPlay();
+                            }, interval);
+                        }
+                    },
+                    generate() {
+                        console.log('Generating');
+                        // console.log(this.swarList);
+                        this.generateCombis();
+                    },
+                    generateCombis() {
+                        this.playingCombiIndex = -1;
+                        let combis123 = getCombis(this.swarList, this.durationPatterns[this.selectedDPIndex]);
+                        // console.log(combis123);
+                        let patternList = this.durationPatterns[this.selectedDPIndex].pattern.split(" ");
+                        // console.log({patternList})
+                        this.unsortedCombis = combis123.map((numbers, naturalIndex) => {
+                            // console.log(numbers);
+                            let pos = 0;
+                            let swarsWithTilde = patternList.map(patternItem => {
+                                let swar = this.swarList[numbers[pos] - 1];
+                                if (patternItem == "X") {
+                                    pos++;
+                                    return swar;
+                                } else {
+                                    return "~";
+                                }
+                            });
+
+                            let prevSwar = '';
+                            let swars = swarsWithTilde.map(swar => {
+                                if (swar == '~') swar = prevSwar;
+                                prevSwar = swar;
+                                return swar;
+                            });
+
+                            // pos = 0;
+                            // let swars = patternList.map(patternItem => {
+                            //     // console.log(patternItem);
+                            //     let swar = this.swarList[numbers[pos] - 1];
+                            //     if(patternItem == "X"){
+                            //         pos++;
+                            //     }
+                            //     return swar;
+                            // });
+
+                            // Count how many time each swar is occurinf
+                            let regExes = this.swarList.map(s => {
+                                return new RegExp(s, 'g')
+                            });
+                            let swarCounts = this.swarList.map((s, i) => {
+                                return (swars.join(' ').match(regExes[i]) || []).length;
+                            });
+
+                            let swarCountsSortToken = swarCounts.join("");
+
+                            // console.log({swars, swarCountsSortToken});
+
+
+                            // console.log({swars, swarsWithTilde, numbers, swarCounts, swarCountsSortToken});
+
+                            return { swars, swarsWithTilde, numbers, swarCounts, swarCountsSortToken, naturalIndex }
+                        });
+                        // console.log(this.combis);
+                        // this.combis = unsortedCombis;
+                        this.applyCombisSort();
+                    },
+                    applyCombisSort() {
+                        if (this.sortBy == 'none') {
+                            console.log('Sorting: none');
+                            this.combis = this.unsortedCombis.sort((a, b) => a.naturalIndex < b.naturalIndex ? -1 : 1);
+                        } else {
+                            console.log('Sorting: by count');
+                            this.combis = this.unsortedCombis.sort((a, b) => a.swarCountsSortToken > b.swarCountsSortToken ? -1 : 1);
+                        }
+                    }
+                },
+
+                created() {
+                    console.log("Created");
+                },
+                mounted() {
+                    console.log("Mounted");
+                    synth = synths[this.synthIndex];
+                    this.setPlayDuration();
+                    this.generate();
+                }
+            })
+        }
+
+        function swarToKey(swar) {
+            return allPianoKeys[allSwars.indexOf(swar)];
+        }
+
+        function keyToSwar(key) {
+            return allSwars[allPianoKeys.indexOf(key)];
+        }
+
+
+        function playPattern(swars, swarsWithTilde, playDuration) {
+            // console.log({ dpCombis: this.dpCombis, r, c, l })
+            // let line = this.dpCombis[r][c].combis[l];
+            // let swars = this.dpCombis[r][c].swars;
+            // let dp = this.currentDP;
+
+            // let filledSwars = fillSwar(line, swars);
+
+            // console.log({ line, swars, filledSwars, dp });
+
+            Tone.start();
+            Tone.Transport.stop();
+            if (tonePart) {
+                // console.log('Stopping tone part');
+
+                try {
+                    tonePart.stop();
+                } catch (error) {
+                    console.error(error);                    
+                }
+
+            }
+            tonePart = new Tone.Part(((time, value) => {
+                // console.log({ swar: value.swar, time, value });
+                synth.triggerAttackRelease(value.note, value.duration, time, value.velocity);
+            }), getPartParams(swars, swarsWithTilde, playDuration)).start(0);
+
+            Tone.Transport.start();
+        }
+
+
+        function getPartParams(swars, swarsWithTilde, playDuration) {
+
+            // console.log({swars, swarsWithTilde});
+            let time = 0;
+            let line = swarsWithTilde.map((swarOrTilde, i) => {
+                let swar = swars[i];
+                let velocity = swarOrTilde == "~" ? 0.7 : 0.9;
+                // let velocity = swarOrTilde == "~" ? 0.9 : 1.1;
+                let duration = playDuration / 16;     //8 sounds, that is oneline, make 2 sec
+                let aLine = {
+                    swar,
+                    swarOrTilde,
+                    index: i,
+                    note: swarToKey(swar),
+                    time,
+                    velocity,
+                    duration
+                };
+                time += duration;
+
+                // console.log({ aLine, swar, swarOrTilde });
+                return aLine;
+            });
+
+            console.log({ line });
+
+            return line;
+        }
+
+
+
+        function getCombis(swarList, dp) {
+            let totalSwars = swarList.length;
+            let pattern = dp.pattern;
+            let slots = (dp.pattern.match(/X/g) || []).length;
+
+
+            let numbers = Array.from(Array(totalSwars + 1).keys());
+            numbers.shift();
+
+            // if (swars.length == 1) {
+            //     if (noSwarRepeat) {
+            //         return [];
+            //     } else {
+            //         return [Array.from(Array(positions)).fill(1)];
+            //     }
+            // }
+
+            var holdingArr = [];
+            var recursiveFn = function (singleSolution) {
+                // if (singleSolution.length > (totalBits - 1)) {   // Control this to how many items you want on your line
+                if (singleSolution.length >= slots) {   // Control this to how many items you want on your line
+                    holdingArr.push(singleSolution);
+                    return;
+                }
+                for (var i = 0; i < numbers.length; i++) {
+                    recursiveFn(singleSolution.concat([numbers[i]]));
+                }
+            };
+            recursiveFn([]);
+
+            // let filteredArray = [];
+            // holdingArr.forEach(line => {
+            //     if (noSwarRepeat && line.length > (new Set(line).size)) {
+            //         // console.log({noRepeat, line});
+            //         return;
+            //     }
+            //     if (allSwarsMustBeUsed && swars.length != (new Set(line).size)) {
+            //         // console.log({allSwarsUsed, line});
+            //         return;
+            //     }
+            //     if (last2Same && line[line.length - 1] != line[line.length - 2]) {
+            //         return;
+            //     }
+            //     filteredArray.push(line);
+            // });
+            // return filteredArray;
+
+            return holdingArr;
+        };
+
+
+
+
+    </script>
+
+
+</body>
+
+</html>
