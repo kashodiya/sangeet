@@ -16,6 +16,10 @@
             font-family: monospace, 'Courier New', Courier;
         }
 
+        .pattern {
+            font-family: monospace, 'Courier New', Courier;
+        }
+
         .pattern:hover {
             cursor: pointer;
             background-color: aliceblue;
@@ -38,7 +42,8 @@
             text-align: right;
         }
 
-        .combi-count, .combi-swar{
+        .combi-count,
+        .combi-swar {
             font-size: small;
         }
 
@@ -51,7 +56,7 @@
             color: lightgray;
         }
 
-        .control-section{
+        .control-section {
             padding-bottom: 15px;
         }
     </style>
@@ -63,24 +68,38 @@
         <h1>Generate 8 swars in 4 bit pattern</h1>
 
         <p>
-            <h3>
+        <h3>
             How to use:
-            </h3>
-            <ul>
-                <li>When you load the page, ".n S" pattern is generated. Scroll down and just PLAY the patterns!</li>
-                <li>You can enter some ther swars. 2 to 4 swras works better. Select a pattern. And hit Generate button.</li>
-                <li>Adjust the play controls as you need!</li>
-            </ul>
+        </h3>
+        <ul>
+            <li>When you load the page, ".n S" pattern is generated. Scroll down and just PLAY the patterns!</li>
+            <li>You can enter some ther swars. 2 to 4 swras works better. Select a pattern. And hit Generate button.
+            </li>
+            <li>Adjust the play controls as you need!</li>
+            <li>You can enter your own pattern also! Enter 8 'X' or '~' seperated by space in last pattern. And hit Generate button. </li>
+        </ul>
         </p>
 
         <h3>Select a pattern</h3>
         <ul class="dp-list">
             <li v-for="(dp, index) in durationPatterns">
-                <input type="radio" :id="'pattern-' + index" name="selectedDP" :value="index" v-model="selectedDPIndex">
-                <label :for="'pattern-' + index" class="pattern">
-                    {{dp.pattern}}
-                </label>
+                <div v-if="index < durationPatterns.length - 1">
+                    <input type="radio" :id="'pattern-' + index" name="selectedDP" :value="index"
+                        v-model="selectedDPIndex">
+                    <label :for="'pattern-' + index" class="pattern">
+                        {{dp.pattern}}
+                    </label>
+                </div>
+                <div v-else>
+                    <input type="radio" :id="'pattern-' + durationPatterns.length - 1" name="selectedDP" :value="index"
+                        v-model="selectedDPIndex">
+                    <label :for="'pattern-' + durationPatterns.length - 1">
+                        <input type="text" class="pattern" v-model="userDurationPattern">
+                    </label>
+
+                </div>
             </li>
+
         </ul>
 
         <h3>Enter swars: (each swar seperated by a space)</h3>
@@ -131,7 +150,7 @@
                         <input type="radio" name="durationType" id="durationType-bpm" value="bpm"
                             v-model="durationType">
                         <label for="durationType-bpm">BPM of Ektaal (12 bits):</label>
-                        <input type="number" v-model="playDurationInBPM" min="5" max="108"> 
+                        <input type="number" v-model="playDurationInBPM" min="5" max="108">
                     </div>
                 </div>
 
@@ -225,6 +244,7 @@
             app = new Vue({
                 el: '#app',
                 data: {
+                    userDurationPattern: "X X ~ ~ ~ X ~ X",
                     durationType: 'bpm',
                     allSwars,
                     allPianoKeys,
@@ -242,7 +262,8 @@
                     durationPatterns: [
                         { pattern: "X ~ X X ~ X ~ X" },
                         { pattern: "X ~ ~ ~ X ~ ~ ~" },
-                        { pattern: "X ~ X ~ X ~ ~ ~" }
+                        { pattern: "X ~ X ~ X ~ ~ ~" },
+                        { pattern: "Set in mounted method" }
 
                         // { display: " oooo|  oooo|  oooo| oooo", last2Same: false, fractions: [1 / 4, 1 / 4, 1 / 4, 1 / 4], minSwar: 1, maxSwar: 4 },
                         // { display: "oo oo|  oooo|  oooo| oooo", last2Same: false, fractions: [1 / 8, 1 / 8, 1 / 4, 1 / 4, 1 / 4], minSwar: 2, maxSwar: 5 },
@@ -271,7 +292,7 @@
                         this.playingCombiIndex = -1;
                         clearInterval(this.autoPlayIntervalId);
                     },
-                    playDurationInSec: function(){
+                    playDurationInSec: function () {
                         this.durationType = 'sec';
                         this.setPlayDuration();
                     },
@@ -281,6 +302,11 @@
                     playDurationInBPM: function () {
                         this.durationType = 'bpm';
                         this.setPlayDuration();
+                    },
+                    userDurationPattern: function () {
+                        let lastIndex = this.durationPatterns.length - 1;
+                        this.selectedDPIndex = lastIndex;
+                        this.durationPatterns[lastIndex].pattern = this.userDurationPattern;
                     }
                 },
                 methods: {
@@ -321,9 +347,11 @@
                     },
                     generateCombis() {
                         this.playingCombiIndex = -1;
-                        let combis123 = getCombis(this.swarList, this.durationPatterns[this.selectedDPIndex]);
+                        console.log('this.selectedDPIndex', this.selectedDPIndex);
+                        let patternObj = this.durationPatterns[this.selectedDPIndex];
+                        let combis123 = getCombis(this.swarList, patternObj);
                         // console.log(combis123);
-                        let patternList = this.durationPatterns[this.selectedDPIndex].pattern.split(" ");
+                        let patternList = patternObj.pattern.split(" ");
                         // console.log({patternList})
                         this.unsortedCombis = combis123.map((numbers, naturalIndex) => {
                             // console.log(numbers);
@@ -392,8 +420,15 @@
                 },
                 mounted() {
                     console.log("Mounted");
+
+                    //Set custom pattern in the array
+                    let lastIndex = this.durationPatterns.length - 1;
+                    this.durationPatterns[lastIndex].pattern = this.userDurationPattern;
+
+                    //Set default synth
                     synth = synths[this.synthIndex];
                     this.setPlayDuration();
+
                     this.generate();
                 }
             })
@@ -426,7 +461,7 @@
                 try {
                     tonePart.stop();
                 } catch (error) {
-                    console.error(error);                    
+                    console.error(error);
                 }
 
             }
