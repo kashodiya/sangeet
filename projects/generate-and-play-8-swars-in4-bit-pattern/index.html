@@ -176,7 +176,7 @@
                     <div class="combi-line">
                         <button @click="play(index)">PLAY</button>
                         &nbsp;
-                        [<span class="combi-swar" v-for="swar in combi.swarsWithTilde">
+                        [<span :style="getSwarHighlightClass(index, swarIndex)" :id="'swar-id-' + index + '-' + swarIndex" class="combi-swar" v-for="(swar, swarIndex) in combi.swarsWithTilde">
                             {{swar}}
                         </span>]
                         <span class="combi-count">
@@ -203,6 +203,9 @@
             sustain: 0.8,
             release: 0.1,
         });
+        let playingCombiSwarIndex = {
+            swarIndex: -1, combiIndex: -1
+        }
 
         // "attack": 0.1,
         //     "decay": 0.5,
@@ -253,6 +256,7 @@
                     selectedDPIndex: 0,
                     playDuration: 4,
                     playDurationInSec: 4,
+                    playingCombiSwarIndex,  //Declared global
                     playDurationInBPM: 13,
                     synthIndex: 0,
                     playingCombiIndex: -1,
@@ -310,6 +314,14 @@
                     }
                 },
                 methods: {
+                    getSwarHighlightClass(combiIndex, swarIndex){
+                        // console.log({combiIndex, swarIndex});
+                        if(this.playingCombiSwarIndex.combiIndex == combiIndex && this.playingCombiSwarIndex.swarIndex == swarIndex){
+                            return "font-weight: bold; color: red; background-color: pink;"
+                        }else{
+                            return "";
+                        }
+                    },
                     setPlayDuration() {
                         if (this.durationType == 'sec') {
                             this.playDuration = this.playDurationInSec;
@@ -324,6 +336,7 @@
                             this.playingCombiIndex = combiIndex;
                             let combi = this.combis[combiIndex];
                             // console.log('Playing combiIndex = ', combiIndex);
+                            playingCombiSwarIndex.combiIndex = combiIndex;
                             playPattern(combi.swars, combi.swarsWithTilde, this.playDuration);
                         }
 
@@ -466,7 +479,14 @@
 
             }
             tonePart = new Tone.Part(((time, value) => {
-                // console.log({ swar: value.swar, time, value });
+                console.log({ swar: value.swar, time, value, swarOrTilde: value.swarOrTilde });
+                playingCombiSwarIndex.swarIndex = value.index;
+                if(value.index == swars.length - 1){
+                    setTimeout(() => {
+                        // console.log('Stop highlighting, end of line.');
+                        playingCombiSwarIndex.swarIndex = -1;
+                    }, value.duration + 1000)
+                }
                 synth.triggerAttackRelease(value.note, value.duration, time, value.velocity);
             }), getPartParams(swars, swarsWithTilde, playDuration)).start(0);
 
