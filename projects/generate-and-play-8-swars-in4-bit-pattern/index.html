@@ -479,7 +479,7 @@
 
             }
             tonePart = new Tone.Part(((time, value) => {
-                console.log({ swar: value.swar, time, value, swarOrTilde: value.swarOrTilde });
+                // console.log({ swar: value.swar, time, value, swarOrTilde: value.swarOrTilde });
                 playingCombiSwarIndex.swarIndex = value.index;
                 if(value.index == swars.length - 1){
                     setTimeout(() => {

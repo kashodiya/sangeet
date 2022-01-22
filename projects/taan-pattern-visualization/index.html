@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taan pattern visualization</title>
+    <script src="https://cdn.jsdelivr.net/npm/@svgdotjs/svg.js@3.0/dist/svg.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.17/Tone.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <style>
+        .play-btn:hover {
+            cursor: pointer;
+        }
+
+        .one-taan-loop-btn:hover {
+            cursor: pointer;
+            fill: darkblue;
+            font-weight: bold;
+        }
+
+        div#draw {
+            height: 800px;
+            /* width: 400px; */
+            border: 1px solid #000;
+            overflow: scroll;
+        }
+
+        xsvg {
+            height: 100px;
+            width: 1100px;
+            border: 1px dotted #ccc;
+            background-color: #ccc;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Taan pattern visualization</h1>
+    <p>
+        How to read: Follow the circles left to right, top to bottom. Ex: First one is .n S G S, .n .n S
+    </p>
+    <p>This patterns are for raag Jog. Make sure to use Komal or Tivra G as appropriate.</p>
+    <hr>
+    <div>
+        <button id="playAllBtn" onClick="playAllClicked(event)">Play All</button>
+    </div>
+    <!-- <div>
+        <label for="duration">Duration</label>
+        <input id="duration" name="duration" type="range" min="0.2" max="2.0" value="0.5" step="0.1"
+            onchange="setDuration(this.value)">
+        <span id="durationDisplay"></span>
+    </div> -->
+    <hr>
+
+    <div id="app">
+        <label for="synths">Select synth tone: </label>
+        <select name="synths" v-model="selectedSynth">
+            <option :value="i" v-for="(synth, i) in synths">
+                {{synth.name}}
+            </option>
+        </select>
+
+        <div>
+            <label for="durationNum">Duration</label>
+            <input name="durationNum" type="range" min="0.2" max="2.0" v-model="duration" step="0.1">
+            <span>{{duration}}</span>
+        </div>
+
+    </div>
+
+    <hr>
+    <div id="draw"></div>
+    <script>
+        let swarOrder = ".n S G M P n S. G.".split(" ");
+        let taans = [".n .n S", ".n S G S", "G M G S", "G M P M", "P n P M", "P n S. n", "n S. G. S."];
+        let allSwars = ".S .r .R .g .G .M .m .P .d .D .n .N S r R g G M m P d D n N S. r. R. g. G. M. m. P. d. D. n. N.".split(" ");
+        let allPianoKeys = "C#3 D3 D#3 E3 F3 F#3 G3 G#3 A3 A#3 B3 C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5 C#5 D5 D#5 E5 F4 F#5 G5 G#5 A5 A#5 B5 C6".split(" ");
+
+        var width = 1600;
+        var height = 5200;
+        var leftMargin = 30;
+        var topMargin = 30;
+        var hGap = 60;
+        var vGap = 20;
+        var curX = leftMargin;
+        var curY = topMargin;
+        var draw = SVG().addTo('#draw').size(width, height).attr('style', 'background-color: aliceblue');
+        var i = 0;
+        let env = new Tone.Envelope({
+            attack: 0.01,
+            decay: 0.01,
+            sustain: 0.8,
+            release: 0.1,
+        });
+        const synths = [
+            new Tone.FMSynth({ envelope: env }).toDestination(),
+            new Tone.AMSynth({ envelope: env }).toDestination(),
+            new Tone.DuoSynth({ envelope: env }).toDestination(),
+            new Tone.MembraneSynth({ envelope: env }).toDestination(),
+            new Tone.MetalSynth({ envelope: env }).toDestination()
+        ]
+        let tonePart;
+        let synth = synths[0];
+        var upDownTaans = [];
+        var playAllSwitch = false;
+        var playAllTimer = null;
+        var playMode = "" // ONE, ALL
+        // var playDuration = 4;
+        var playAllBtnEle = document.getElementById("playAllBtn");
+
+        // var durationDisplayEle = document.getElementById("durationDisplay");
+        // var durationEle = document.getElementById("duration");
+
+        var circles = {};
+        let duration = 0.3; //How long each individual swar is playing 
+
+
+        // Main entry
+        init();
+
+        function init() {
+            var app = new Vue({
+                el: '#app',
+                data: {
+                    synths,
+                    selectedSynth: 0,
+                    duration
+                },
+                watch: {
+                    selectedSynth: (s) => {
+                        console.log(s);
+                        synth = synths[s];
+                    },
+                    duration: (d) => {
+                        setDuration(d);
+                    }
+                },
+                methods: {
+
+                }
+            })
+            render();
+        }
+
+
+
+        function setDuration(d) {
+            duration = Number(d);
+            // durationDisplayEle.innerText = duration;
+        }
+
+        function render() {
+
+            // durationDisplayEle.innerText = duration;
+            // durationEle.value = duration;
+
+            //1-0, 1-2-1-0, 1-2-3-2-1-0
+            for (var mx = 1; mx <= 6; mx++) {
+                var aTaan = [];
+                //Go from 1 to mx and thn mx to 0
+                for (i = 1; i <= mx; i++) {
+                    aTaan.push(taans[i]);
+                }
+                for (i = mx - 1; i >= 0; i--) {
+                    // aTaan.push({taan: taans[i], loop: false});
+                    aTaan.push(taans[i]);
+                }
+                upDownTaans.push({ taans: aTaan, loop: false });
+            }
+
+
+            swarOrder.forEach((swar, i) => {
+                // console.log({swar, i});            
+                draw.text(swar).center(curX, curY).attr({ "font-weight": "bold" });
+                curX += hGap;
+            });
+
+            var maxX = curX - (hGap / 2);
+            curY += vGap * 2;
+            curX = leftMargin;
+
+
+            upDownTaans.forEach((udTaansObj, udTi) => {
+                var udTaans = udTaansObj.taans;
+                // console.log({udTaans})
+
+                curY += 10;
+                var taanLines = [];
+                udTaans.forEach((taan, ti) => {
+                    var doneSwars = [];
+                    var taanPoints = [];
+                    var x = 0;
+                    var y = 0;
+                    var patternTxtCoord = { x: leftMargin, y: curY };
+                    curY += vGap * 1.5;
+                    taan.split(" ").forEach((swar, si) => {
+                        var index = swarOrder.indexOf(swar);
+                        if (doneSwars.indexOf(swar) >= 0) {
+                            var prevX = taanPoints[taanPoints.length - 1][0];
+                            // taanPoints.push([prevX, y]);
+                            curY += vGap;
+                            taanPoints.push([prevX, curY]);
+                        }
+                        x = ((index) * hGap) + leftMargin;
+                        y = curY;
+                        taanPoints.push([x, y]);
+                        if (si == 0) {
+                            patternTxtCoord.x = x;
+                        }
+                        let id = `${udTi}-${ti}-${si}`;
+                        let circle = draw.circle(10).center(x, y).stroke({ color: 'black', opacity: 0.6, width: 3 }).attr({ fill: 'none', id });
+                        circles[id] = circle;
+                        prevIndex = index;
+                        doneSwars.push(swar);
+                    });
+                    // console.log(taanPoints)
+
+                    //Print the swars above the pattern
+                    draw.text(doneSwars.join("-")).move(patternTxtCoord.x, patternTxtCoord.y).attr({ "fill": "grey" });
+
+                    //Above the first taan swars put play button
+                    if (ti == 0) {
+                        let playBtn = draw.text("⏯").move(patternTxtCoord.x - 27, patternTxtCoord.y - 30).attr({ "font-size": "16", class: 'play-btn' });
+                        let loopCheckBoxLabel = udTaansObj.loop ? "Loop? ☑" : "Loop? ☐";
+                        let loopCheckBox = draw.text(loopCheckBoxLabel).move(patternTxtCoord.x + 9, patternTxtCoord.y - 28).attr({ "font-size": "16", class: 'one-taan-loop-btn' });
+
+                        loopCheckBox.click(() => {
+                            onLoopBtnClicked(udTi, loopCheckBox);
+                        });
+
+                        playBtn.click(() => {
+                            onOnePlayBtnClicked(udTi);
+                        });
+
+                        playBtn.click(onOnePlayBtnClicked(udTi));
+
+
+                    }
+
+
+                    for (var i = 0; i < taanPoints.length - 1; i++) {
+                        draw.line(taanPoints[i][0], taanPoints[i][1], taanPoints[i + 1][0], taanPoints[i + 1][1]).stroke({ color: 'grey', width: 3, linecap: 'round' })
+                    }
+
+                    taanLines.push(taanPoints);
+                    curY += vGap * 1.5;
+                });
+
+                //Hor line demarketing one udTaan complete
+                draw.line(leftMargin / 2, curY, maxX, curY).stroke({ color: 'grey', width: 1, linecap: 'round' }).attr({ "stroke-dasharray": "4" });
+
+                curY += vGap * 2;
+
+            });
+
+
+            var maxY = curY;
+
+            curX = leftMargin;
+            curY = topMargin + (vGap / 2);
+
+            swarOrder.forEach((swar, i) => {
+                // console.log({swar, i});            
+                draw.line(curX, curY, curX, maxY).stroke({ color: 'grey', width: 1, linecap: 'round' }).attr({ "stroke-dasharray": "4" });
+                curX += hGap;
+            });
+
+            maxX = curX;
+
+            draw.width(maxX);
+            draw.height(maxY + vGap);
+        }
+
+        function onLoopBtnClicked(udTi, loopCheckBox) {
+            let udTaansObj = upDownTaans[udTi];
+            if (udTaansObj.timer) clearInterval(udTaansObj.timer);
+            udTaansObj.loop = !udTaansObj.loop;
+            let loopCheckBoxLabel = '';
+
+            if (udTaansObj.loop) {
+                loopCheckBoxLabel = "Loop? ☑";
+            } else {
+                loopCheckBoxLabel = "Loop? ☐";
+                playMode = "";
+            }
+            loopCheckBox.text(loopCheckBoxLabel);
+        }
+
+        function onOnePlayBtnClicked(udTi) {
+            let udTaansObj = upDownTaans[udTi];
+            return () => {
+                if (playMode == "" || playMode == "ALL") {
+                    stopPlayAll();
+                    playMode = udTaansObj.loop ? "ONE-LOOP" : "ONE";
+                    let udTaanIndex = udTi;
+                    console.log({ udTi });
+                    console.log('Playing: udTaanIndex: ', udTaanIndex);
+                    playPattern(udTaanIndex, function onPatternPlayDone() {
+                        console.log('Play Pattern completed!');
+                        if (udTaansObj.loop) {
+                            console.log('Looping same play Pattern, in 1 sec...');
+                            clearAllCircleHighlights();
+                            if (udTaansObj.timer) {
+                                clearInterval(udTaansObj.timer)
+                            }
+                            udTaansObj.timer = setTimeout(() => {
+                                playPattern(udTaanIndex, onPatternPlayDone)
+                            }, duration * 1000)
+                        } else {
+                            playMode = "";
+                            clearAllCircleHighlights();
+                        }
+                    });
+                } else {
+                    console.log('Play/Pause was toggled to off. Play mode = ', playMode)
+                    playMode = "";
+                }
+            }
+        }
+
+        function playAllClicked(e) {
+            console.log(e);
+            clearAllCircleHighlights();
+            if (playAllSwitch) {
+                stopPlayAll();
+            } else {
+                startPlayAll();
+            }
+        }
+
+        function startPlayAll() {
+            clearAllCircleHighlights();
+            playAllBtnEle.innerText = "Stop"
+            console.log('Playing all...');
+            playAllSwitch = true;
+            playFromIndex(0);
+        }
+
+        function stopPlayAll() {
+            playAllBtnEle.innerText = "Play All"
+            playAllSwitch = false;
+            clearAllCircleHighlights();
+            if (playAllTimer) clearTimeout(playAllTimer);
+        }
+
+        function playFromIndex(patternIndex) {
+            playMode = "ALL";
+            console.log("playFromIndex: ", patternIndex);
+            playPattern(patternIndex, function onOnePatternPlayDone() {
+                if (playAllSwitch) {
+                    playAllTimer = setTimeout(() => {
+                        patternIndex++;
+                        if (patternIndex >= upDownTaans.length) {
+                            console.log(`patternIndex = ${patternIndex}. Last pattern was played. Not resetting Play All and playAllSwitch`);
+                            playAllSwitch = false;
+                            playMode = "";
+                            playAllBtnEle.innerText = "Play All";
+
+                        } else {
+                            playFromIndex(patternIndex, onOnePatternPlayDone);
+                        }
+                    }, duration * 1000);
+                }
+            });
+        }
+
+        function playPattern(udTaanIndex, onComplete) {
+
+            console.log(`Playing: ${udTaanIndex}`)
+            // let taans = upDownTaans[udTaanIndex].taans;
+
+            Tone.start();
+            Tone.Transport.stop();
+            if (tonePart) {
+                try {
+                    tonePart.stop();
+                } catch (error) {
+                    console.error(error);
+                }
+
+            }
+
+            let partParams = getPartParams(udTaanIndex);
+            console.log({ partParams })
+
+            tonePart = new Tone.Part(((time, value) => {
+                // console.log({ swar: value.swar, time, value, swarOrTilde: value.swarOrTilde });
+                // playingCombiSwarIndex.swarIndex = value.index;
+                // if (value.index == swars.length - 1) {
+                //     setTimeout(() => {
+                //         // console.log('Stop highlighting, end of line.');
+                //         playingCombiSwarIndex.swarIndex = -1;
+                //     }, value.duration + 1000)
+                // }
+                let stop = false;
+                if (playMode == "") {
+                    stop = true;
+                }
+                if (playMode == "ONE-LOOP" && !upDownTaans[udTaanIndex].loop) {
+                    stop = true;
+                    // clearAllCircleHighlights();
+                    // console.log("Loop was toggled to OFF, not playing remaining");
+                    // tonePart.stop();
+                    // playMode = "";
+                    // return;
+                }
+                if (playMode == "ALL" && !playAllSwitch) {
+                    stop = true;
+                }
+                if (stop) {
+                    clearAllCircleHighlights();
+                    console.log("Stopping playing");
+                    tonePart.stop();
+                    playMode = "";
+                    return;
+                }
+
+                if (value.lastSwar) {
+                    let lastSwarMilSec = value.duration * 1000;
+                    console.log("Lastswar is being played, waiting mil sec: ", lastSwarMilSec);
+                    //Call onDone after the duration
+                    setTimeout(onComplete, lastSwarMilSec);
+                }
+
+                console.log(`Playing ${value.swar} ${value.udTaanIndex} ${value.taanIndex} ${value.swarIndex}`);
+
+                onSwarPlaying(value.udTaanIndex, value.taanIndex, value.swarIndex);
+
+                synth.triggerAttackRelease(value.note, value.duration, time, value.velocity);
+            }), partParams).start(0);
+
+            Tone.Transport.start();
+        }
+
+        function onSwarPlaying(udTaanIndex, taanIndex, swarIndex) {
+            let id = `${udTaanIndex}-${taanIndex}-${swarIndex}`;
+            let circle = circles[id];
+            // console.log(circle);
+            circle.attr({ fill: 'red' });
+        }
+
+        function clearAllCircleHighlights() {
+            for (const [id, circle] of Object.entries(circles)) {
+                circle.attr({ fill: 'none' });
+            }
+        }
+
+        function getPartParams(udTaanIndex) {
+            let taans = upDownTaans[udTaanIndex].taans;
+
+            let parts = [];
+            let time = 0;
+            taans.forEach((taan, taanIndex) => {
+                let swars = taan.split(" ");
+                //TODO: Play with velocity to get right
+                let velocity = (taanIndex == 0) ? 0.9 : 1.1;
+                swars.forEach((swar, swarIndex) => {
+                    parts.push({
+                        swar,
+                        udTaanIndex,
+                        taanIndex,
+                        swarIndex,
+                        note: swarToKey(swar),
+                        time,
+                        velocity,
+                        duration,
+                        lastSwar: (taanIndex == taans.length - 1) && (swarIndex == swars.length - 1)
+                    });
+                    time += duration;
+                });
+            });
+            return parts;
+        }
+
+        function swarToKey(swar) {
+            return allPianoKeys[allSwars.indexOf(swar)];
+        }
+
+
+
+
+    </script>
+</body>
+
+</html>
