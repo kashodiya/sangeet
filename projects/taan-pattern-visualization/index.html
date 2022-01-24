@@ -73,7 +73,7 @@
     <hr>
     <div id="draw"></div>
     <script>
-        let swarOrder = ".n S G M P n S. G.".split(" ");
+        let swarOrder = ".n S G M P n S. G. M.".split(" ");
         let taans = [".n .n S", ".n S G S", "G M G S", "G M P M", "P n P M", "P n S. n", "n S. G. S."];
         let allSwars = ".S .r .R .g .G .M .m .P .d .D .n .N S r R g G M m P d D n N S. r. R. g. G. M. m. P. d. D. n. N.".split(" ");
         let allPianoKeys = "C#3 D3 D#3 E3 F3 F#3 G3 G#3 A3 A#3 B3 C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5 C#5 D5 D#5 E5 F4 F#5 G5 G#5 A5 A#5 B5 C6".split(" ");
@@ -167,7 +167,7 @@
                     // aTaan.push({taan: taans[i], loop: false});
                     aTaan.push(taans[i]);
                 }
-                upDownTaans.push({ taans: aTaan, loop: false });
+                upDownTaans.push({ taans: aTaan, loop: false, nextLevel: false });
             }
 
 
@@ -222,12 +222,19 @@
 
                     //Above the first taan swars put play button
                     if (ti == 0) {
-                        let playBtn = draw.text("⏯").move(patternTxtCoord.x - 27, patternTxtCoord.y - 30).attr({ "font-size": "16", class: 'play-btn' });
+                        let playBtn = draw.text("⏯").move(patternTxtCoord.x - 23, patternTxtCoord.y - 28).attr({ "font-size": "16", class: 'play-btn' });
                         let loopCheckBoxLabel = udTaansObj.loop ? "Loop? ☑" : "Loop? ☐";
                         let loopCheckBox = draw.text(loopCheckBoxLabel).move(patternTxtCoord.x + 9, patternTxtCoord.y - 28).attr({ "font-size": "16", class: 'one-taan-loop-btn' });
 
+                        let nextLevelCheckBoxLabel = udTaansObj.nextLevel ? ", Next level? ☑" : "Next Level? ☐";
+                        let nextLevelCheckBox = draw.text(nextLevelCheckBoxLabel).move(patternTxtCoord.x + 89, patternTxtCoord.y - 28).attr({ "font-size": "16", class: 'one-taan-loop-btn' });
+
                         loopCheckBox.click(() => {
                             onLoopBtnClicked(udTi, loopCheckBox);
+                        });
+
+                        nextLevelCheckBox.click(() => {
+                            onNextLevelBtnClicked(udTi, nextLevelCheckBox);
                         });
 
                         playBtn.click(() => {
@@ -273,6 +280,21 @@
             draw.height(maxY + vGap);
         }
 
+        function onNextLevelBtnClicked(udTi, nextLevelCheckBox) {
+            let udTaansObj = upDownTaans[udTi];
+            if (udTaansObj.timer) clearInterval(udTaansObj.timer);
+            udTaansObj.nextLevel = !udTaansObj.nextLevel;
+            let nextLevelCheckBoxLabel = '';
+
+            if (udTaansObj.nextLevel) {
+                nextLevelCheckBoxLabel = "Next Level? ☑";
+            } else {
+                nextLevelCheckBoxLabel = "Next Level? ☐";
+                playMode = "";
+            }
+            nextLevelCheckBox.text(nextLevelCheckBoxLabel);
+        }
+
         function onLoopBtnClicked(udTi, loopCheckBox) {
             let udTaansObj = upDownTaans[udTi];
             if (udTaansObj.timer) clearInterval(udTaansObj.timer);
@@ -287,6 +309,8 @@
             }
             loopCheckBox.text(loopCheckBoxLabel);
         }
+
+        // udTaansObj.nextLevel
 
         function onOnePlayBtnClicked(udTi) {
             let udTaansObj = upDownTaans[udTi];
@@ -366,8 +390,16 @@
             });
         }
 
-        function playPattern(udTaanIndex, onComplete) {
+        // function clearAllLastSwarFlags(){
+        //     upDownTaans.forEach(udTaanIndex => {
+        //         upDownTaans[udTaanIndex].forEach(swarObj => {
+                    
+        //         });
+        //     });
+        // }
 
+        function playPattern(udTaanIndex, onComplete) {
+            // clearAllLastSwarFlags();            
             console.log(`Playing: ${udTaanIndex}`)
             // let taans = upDownTaans[udTaanIndex].taans;
 
@@ -449,6 +481,7 @@
 
         function getPartParams(udTaanIndex) {
             let taans = upDownTaans[udTaanIndex].taans;
+            let nextLevel = upDownTaans[udTaanIndex].nextLevel;
 
             let parts = [];
             let time = 0;
@@ -457,18 +490,46 @@
                 //TODO: Play with velocity to get right
                 let velocity = (taanIndex == 0) ? 0.9 : 1.1;
                 swars.forEach((swar, swarIndex) => {
-                    parts.push({
-                        swar,
-                        udTaanIndex,
-                        taanIndex,
-                        swarIndex,
-                        note: swarToKey(swar),
-                        time,
-                        velocity,
-                        duration,
-                        lastSwar: (taanIndex == taans.length - 1) && (swarIndex == swars.length - 1)
-                    });
-                    time += duration;
+                    if (nextLevel) {
+                        //Get .n S .n like pattern for current swar .n
+                        let orderIndex = swarOrder.indexOf(swar);
+                        let threeSwars = [swar, swarOrder[orderIndex + 1], swar];
+                        threeSwars.forEach((tSwar, tsi) => {
+                            let isLastSwar = false;
+                            if((taanIndex == taans.length - 1) 
+                                && (swarIndex == swars.length - 1)
+                                && (tsi == threeSwars.length - 1) ){
+                                isLastSwar = true;
+                            } 
+                            parts.push({
+                                tSwar,
+                                udTaanIndex,
+                                taanIndex,
+                                swarIndex,
+                                note: swarToKey(tSwar),
+                                time,
+                                velocity,
+                                duration,
+                                lastSwar: isLastSwar
+                            });
+                            time += duration;
+
+                        });
+
+                    } else {
+                        parts.push({
+                            swar,
+                            udTaanIndex,
+                            taanIndex,
+                            swarIndex,
+                            note: swarToKey(swar),
+                            time,
+                            velocity,
+                            duration,
+                            lastSwar: (taanIndex == taans.length - 1) && (swarIndex == swars.length - 1)
+                        });
+                        time += duration;
+                    }
                 });
             });
             return parts;
