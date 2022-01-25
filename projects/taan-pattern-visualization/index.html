@@ -43,38 +43,47 @@
     </p>
     <p>This patterns are for raag Jog. Make sure to use Komal or Tivra G as appropriate.</p>
     <hr>
-    <div>
-        <button id="playAllBtn" onClick="playAllClicked(event)">Play All</button>
-    </div>
-    <!-- <div>
-        <label for="duration">Duration</label>
-        <input id="duration" name="duration" type="range" min="0.2" max="2.0" value="0.5" step="0.1"
-            onchange="setDuration(this.value)">
-        <span id="durationDisplay"></span>
-    </div> -->
-    <hr>
 
     <div id="app">
-        <label for="synths">Select synth tone: </label>
-        <select name="synths" v-model="selectedSynth">
-            <option :value="i" v-for="(synth, i) in synths">
-                {{synth.name}}
-            </option>
-        </select>
 
-        <div>
+        <p>
+            <button id="playAllBtn" @click="playAllClicked">Play All Start/Stop</button>
+            &nbsp;&nbsp;&nbsp;
+            <label for="playAllNextLevel">Next level?</label>
+            <input type="checkbox" name="playAllNextLevel" v-model="playAllNextLevel">
+        </p>
+        <p>
+            <label for="raagSwars">Raag swars: (Each swar seperated by a space): </label>
+            <input type="text" name="raagSwars" v-model="raagSwars">
+            <button @click="applyRaagSwars">Apply swars</button>
+            <span v-if="raagSwarsErrorMsg.length > 0">{{raagSwarsErrorMsg}}</span>
+        </p>
+
+        <p>
+            <label for="synths">Select synth tone: </label>
+            <select name="synths" v-model="selectedSynth">
+                <option :value="i" v-for="(synth, i) in synths">
+                    {{synth.name}}
+                </option>
+            </select>
+        </p>
+
+        <p>
             <label for="durationNum">Duration</label>
             <input name="durationNum" type="range" min="0.2" max="2.0" v-model="duration" step="0.1">
             <span>{{duration}}</span>
-        </div>
+        </p>
 
     </div>
 
     <hr>
     <div id="draw"></div>
     <script>
-        let swarOrder = ".n S G M P n S. G. M.".split(" ");
-        let taans = [".n .n S", ".n S G S", "G M G S", "G M P M", "P n P M", "P n S. n", "n S. G. S."];
+        // let swarOrder = ".n S G M P n S. G. M.".split(" ");
+        // let swarOrder = ".d S G M P d S. G. M.".split(" ");
+        let swarOrder = [];
+        let taans = [];
+        // let taans = [".n .n S", ".n S G S", "G M G S", "G M P M", "P n P M", "P n S. n", "n S. G. S."];
         let allSwars = ".S .r .R .g .G .M .m .P .d .D .n .N S r R g G M m P d D n N S. r. R. g. G. M. m. P. d. D. n. N.".split(" ");
         let allPianoKeys = "C#3 D3 D#3 E3 F3 F#3 G3 G#3 A3 A#3 B3 C4 C#4 D4 D#4 E4 F4 F#4 G4 G#4 A4 A#4 B4 C5 C#5 D5 D#5 E5 F4 F#5 G5 G#5 A5 A#5 B5 C6".split(" ");
 
@@ -102,13 +111,14 @@
             new Tone.MetalSynth({ envelope: env }).toDestination()
         ]
         let tonePart;
+        let playAllNextLevel;
         let synth = synths[0];
         var upDownTaans = [];
         var playAllSwitch = false;
         var playAllTimer = null;
         var playMode = "" // ONE, ALL
         // var playDuration = 4;
-        var playAllBtnEle = document.getElementById("playAllBtn");
+        // var playAllBtnEle = document.getElementById("playAllBtn");
 
         // var durationDisplayEle = document.getElementById("durationDisplay");
         // var durationEle = document.getElementById("duration");
@@ -126,9 +136,15 @@
                 data: {
                     synths,
                     selectedSynth: 0,
-                    duration
+                    duration,
+                    raagSwars: ".n S G M P n S. G. M.",
+                    raagSwarsErrorMsg: '',
+                    playAllNextLevel: true
                 },
                 watch: {
+                    playAllNextLevel(flag){
+                        playAllNextLevel = flag;
+                    },
                     selectedSynth: (s) => {
                         console.log(s);
                         synth = synths[s];
@@ -138,10 +154,57 @@
                     }
                 },
                 methods: {
-
+                    applyRaagSwars() {
+                        this.raagSwarsErrorMsg = "";
+                        let inputStr = this.raagSwars.trim();   //Remove start and ending space
+                        inputStr = inputStr.replace(/\s\s+/g, ' ');    //Replace more than one space to one space
+                        // console.log(inputStr);
+                        let newSwarOrder = inputStr.split(" ");
+                        if (newSwarOrder.length < 5) {
+                            this.raagSwarsErrorMsg = "Please enter at least 5 swars"
+                        }
+                        //Ensure swars are valid
+                        var valid = true;
+                        newSwarOrder.forEach((ns, i) => {
+                            if (allSwars.indexOf(ns) == -1) {
+                                this.raagSwarsErrorMsg = `Invalid swar: "${ns}" (at position ${i + 1}).`;
+                                valid = false;
+                            }
+                        });
+                        //Check if fist swar has corresponding ending swar
+                        let firstSwar = newSwarOrder[0].replace('.', '');
+                        let matchingFirst = newSwarOrder.filter((s,i) => i > 0 && s == firstSwar)
+                        if(matchingFirst.length == 0){
+                            this.raagSwarsErrorMsg = 'First swar should appear again like: "n" in ".n S G M P n S. G. M.".';
+                            valid = false;
+                        }
+                        if (valid) {
+                            swarOrder = newSwarOrder;
+                            curX = leftMargin;
+                            curY = topMargin;
+                            render();
+                        }
+                        // console.log(swarOrder);
+                    },
+                    playAllClicked() {
+                        clearAllCircleHighlights();
+                        if (playAllSwitch) {
+                            stopPlayAll();
+                        } else {
+                            startPlayAll();
+                        }
+                    }
+                },
+                created() {
+                    console.log("App created");
+                    // this.applyRaagSwars();
+                    swarOrder = this.raagSwars.split(" ");
+                    taans = makeTaans();
+                    playAllNextLevel = this.playAllNextLevel;
+                    render();
                 }
             })
-            render();
+
         }
 
 
@@ -151,7 +214,57 @@
             // durationDisplayEle.innerText = duration;
         }
 
+        function makeTaans() {
+            // console.log('Making taans for: ', swarOrder.join(" "));
+            let chalans = [[1, 2, 1], [1, 0, -1]]; //Chalan is relative steps from current swar, and 2 chalans are alternated
+            let endAtIndex = swarOrder.length - 3;
+            let newTaans = [];
+            //First is 3 swar taan
+            newTaans.push([swarOrder[0], swarOrder[0], swarOrder[1]]);
+            let startIndex = 0;
+            let curChalanIndex = 0;
+            while (startIndex <= endAtIndex) {
+                curChalanIndex = curChalanIndex % 2;    //Alternate between 0 and 1
+                //If the last swarin the last generated taan is just an octive higher than first swar of the swarOrder, you need to reset curChalanIndex (make it 0)
+                if (newTaans.length > 0) {
+                    let previousTaan = newTaans[newTaans.length - 1];
+                    let lastSwarOfPrevTaan = previousTaan[previousTaan.length - 1];
+                    // console.log({ lastSwarOfPrevTaan });
+                    let veryFirstSwar = swarOrder[0].replace('.', '');
+                    let lastSwarOfPrevTaanOctiveRemoved = lastSwarOfPrevTaan.replace('.', '');
+                    if (veryFirstSwar == lastSwarOfPrevTaan) {
+                        curChalanIndex = 0;
+                        startIndex = swarOrder.indexOf(lastSwarOfPrevTaan);
+                    }
+                }
+
+                let oneTaan = [swarOrder[startIndex]];
+                let curChalan = chalans[curChalanIndex];
+                curChalan.forEach(upDown => {
+                    oneTaan.push(swarOrder[startIndex + upDown])
+                });
+                let lastSwar = oneTaan[oneTaan.length - 1];
+                startIndex = swarOrder.indexOf(lastSwar) + 1;
+                newTaans.push(oneTaan);
+                curChalanIndex++;
+            }
+            // console.log(newTaans);
+
+            newTaans = newTaans.map(nt => nt.join(" "));
+
+            return newTaans;
+        }
+
         function render() {
+            //Do a reset
+            // swarOrder = so;
+            curX = leftMargin;
+            curY = topMargin;
+            udTaans = [];
+            draw.clear();
+            upDownTaans = [];
+            taans = makeTaans();
+            // console.log({ action: 'render', taans, swarOrder: swarOrder.join(" ") });
 
             // durationDisplayEle.innerText = duration;
             // durationEle.value = duration;
@@ -195,8 +308,13 @@
                     var y = 0;
                     var patternTxtCoord = { x: leftMargin, y: curY };
                     curY += vGap * 1.5;
+                    // console.log(`Rendering taan: ${taan}`);
                     taan.split(" ").forEach((swar, si) => {
                         var index = swarOrder.indexOf(swar);
+                        if (index == -1) {
+                            // debugger;
+                            console.log(`Wow! swar notu found: ${swar} in ${swarOrder}`)
+                        }
                         if (doneSwars.indexOf(swar) >= 0) {
                             var prevX = taanPoints[taanPoints.length - 1][0];
                             // taanPoints.push([prevX, y]);
@@ -220,7 +338,7 @@
                     //Print the swars above the pattern
                     draw.text(doneSwars.join("-")).move(patternTxtCoord.x, patternTxtCoord.y).attr({ "fill": "grey" });
 
-                    //Above the first taan swars put play button
+                    //Above the first taan swars put play button and other controls
                     if (ti == 0) {
                         let playBtn = draw.text("⏯").move(patternTxtCoord.x - 23, patternTxtCoord.y - 28).attr({ "font-size": "16", class: 'play-btn' });
                         let loopCheckBoxLabel = udTaansObj.loop ? "Loop? ☑" : "Loop? ☐";
@@ -242,8 +360,6 @@
                         });
 
                         playBtn.click(onOnePlayBtnClicked(udTi));
-
-
                     }
 
 
@@ -344,26 +460,26 @@
             }
         }
 
-        function playAllClicked(e) {
-            console.log(e);
-            clearAllCircleHighlights();
-            if (playAllSwitch) {
-                stopPlayAll();
-            } else {
-                startPlayAll();
-            }
-        }
+        // function playAllClicked(e) {
+        //     console.log(e);
+        //     clearAllCircleHighlights();
+        //     if (playAllSwitch) {
+        //         stopPlayAll();
+        //     } else {
+        //         startPlayAll();
+        //     }
+        // }
 
         function startPlayAll() {
             clearAllCircleHighlights();
-            playAllBtnEle.innerText = "Stop"
+            // playAllBtnEle.innerText = "Stop"
             console.log('Playing all...');
             playAllSwitch = true;
             playFromIndex(0);
         }
 
         function stopPlayAll() {
-            playAllBtnEle.innerText = "Play All"
+            // playAllBtnEle.innerText = "Play All"
             playAllSwitch = false;
             clearAllCircleHighlights();
             if (playAllTimer) clearTimeout(playAllTimer);
@@ -380,7 +496,7 @@
                             console.log(`patternIndex = ${patternIndex}. Last pattern was played. Not resetting Play All and playAllSwitch`);
                             playAllSwitch = false;
                             playMode = "";
-                            playAllBtnEle.innerText = "Play All";
+                            // playAllBtnEle.innerText = "Play All";
 
                         } else {
                             playFromIndex(patternIndex, onOnePatternPlayDone);
@@ -393,14 +509,14 @@
         // function clearAllLastSwarFlags(){
         //     upDownTaans.forEach(udTaanIndex => {
         //         upDownTaans[udTaanIndex].forEach(swarObj => {
-                    
+
         //         });
         //     });
         // }
 
         function playPattern(udTaanIndex, onComplete) {
             // clearAllLastSwarFlags();            
-            console.log(`Playing: ${udTaanIndex}`)
+            // console.log(`Playing: ${udTaanIndex}`)
             // let taans = upDownTaans[udTaanIndex].taans;
 
             Tone.start();
@@ -415,7 +531,7 @@
             }
 
             let partParams = getPartParams(udTaanIndex);
-            console.log({ partParams })
+            // console.log({ partParams })
 
             tonePart = new Tone.Part(((time, value) => {
                 // console.log({ swar: value.swar, time, value, swarOrTilde: value.swarOrTilde });
@@ -456,7 +572,7 @@
                     setTimeout(onComplete, lastSwarMilSec);
                 }
 
-                console.log(`Playing ${value.swar} ${value.udTaanIndex} ${value.taanIndex} ${value.swarIndex}`);
+                // console.log(`Playing ${value.swar} ${value.udTaanIndex} ${value.taanIndex} ${value.swarIndex}`);
 
                 onSwarPlaying(value.udTaanIndex, value.taanIndex, value.swarIndex);
 
@@ -490,17 +606,17 @@
                 //TODO: Play with velocity to get right
                 let velocity = (taanIndex == 0) ? 0.9 : 1.1;
                 swars.forEach((swar, swarIndex) => {
-                    if (nextLevel) {
+                    if (playAllNextLevel || nextLevel) {
                         //Get .n S .n like pattern for current swar .n
                         let orderIndex = swarOrder.indexOf(swar);
                         let threeSwars = [swar, swarOrder[orderIndex + 1], swar];
                         threeSwars.forEach((tSwar, tsi) => {
                             let isLastSwar = false;
-                            if((taanIndex == taans.length - 1) 
+                            if ((taanIndex == taans.length - 1)
                                 && (swarIndex == swars.length - 1)
-                                && (tsi == threeSwars.length - 1) ){
+                                && (tsi == threeSwars.length - 1)) {
                                 isLastSwar = true;
-                            } 
+                            }
                             parts.push({
                                 tSwar,
                                 udTaanIndex,
